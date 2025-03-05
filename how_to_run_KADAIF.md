@@ -5,6 +5,8 @@
 The KADAIF algorithm is an anomaly detection method specifically designed for microbiome data. It is based on the concept of [Isolation Forest (liu et al., 2008)]([url](https://ieeexplore.ieee.org/abstract/document/4781136)), a tree-based unsupervised learning algorithm that isolates anomalies by recursively partitioning data.
 The anomaly score is computed based on how the average depth on which a sample was isolated.
 
+![Schematic illustration of KADAIF](KADAIF.jpg)
+
 # Running KADAIF
 
 
