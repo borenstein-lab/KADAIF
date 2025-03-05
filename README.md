@@ -7,4 +7,6 @@ This Github repository contains three folder:
 2. **run_on_datasets** - Bash and Python scripts for running and reproducing the specific mislabeling and contamination tests outlined in the manuscript. Due to GitHub file size limitations, raw data and results are not included.
 3. **analysis** - Jupyter notebooks with the analysis results from the manuscript.
 
-For a detailed guide on running KADAIF and an example, see here:
+For details on KADAIF's implementation, attributes and functions, see [here](https://github.com/omripel/KADAIF/blob/main/how_to_run_KADAIF.md):
+
+![Schematic illustration of KADAIF](KADAIF.jpg)
