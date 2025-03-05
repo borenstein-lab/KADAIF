@@ -15,7 +15,7 @@ import warnings
 MDS_NUM = 20
 
 class KADAIF:
-    def __init__(self, number_of_trees=10, trees=None, min_samples_to_split = 2, max_depth = 100, weights = "proportion",replacement = True,
+    def __init__(self, number_of_trees=100, trees=None, min_samples_to_split = 2, max_depth = 100, weights = "proportion",replacement = True,
                  pc_method = "first", normalize = True, subsample_size = 100, splitting_method = "pcoa", paral = True, cpu = None, verbose = True):
         self.number_of_trees = number_of_trees
         if trees ==None:
