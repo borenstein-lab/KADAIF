@@ -20,10 +20,11 @@ The anomaly score is computed based on how the average depth on which a sample w
 * **`pc_method`** (str, default="proportion"): The method for selecting principal components. Options: "first" (use the first PC), "equal" (choose from the first few  PCs over the uniform distribution), "proportion" (choose from the first few PCs with probablity proportional to the variance explained).
 * **`normalize`** (bool, default=True): Whether to normalize selected features.
 * **`subsample_size`** (int, default=100): Number of features selected at each split.
-* **`splitting_method`** (str, default="pcoa"): Method used for splitting. Options: "pcoa" or "pca".
+* **`splitting_method`** (str, default="pcoa"): Method used for splitting. Options: "pcoa", "unifrac_unweighted_pcoa", "unifrac_weighted_pcoa" or "pca".
 * **`paral`** (bool, default=True): Whether to parallelize tree building.
 * **`cpu`** (int, default=None): Number of CPU cores used for parallelization. If None, all available cores are used.
 * **`verbose`** (bool, default=True): Whether to print progress messages.
+* * **`unifrac_tree`** (skbio TreeNode, default=None): a phylogenetic tree in scikit-bio TreeNode format with tips corresponding to taxa in features_matrix. needed only if "splitting_method" is "unifrac_unweighted_pcoa" or "unifrac_weighted_pcoa".
 
 ## Methods
 
