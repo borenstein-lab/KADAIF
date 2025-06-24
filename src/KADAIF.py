@@ -7,6 +7,9 @@ from sklearn.preprocessing import StandardScaler
 from joblib import Parallel, delayed
 from multiprocessing import cpu_count
 from scipy.spatial.distance import pdist, squareform
+from skbio import TreeNode
+from skbio.diversity import beta_diversity
+from skbio.diversity.beta import unweighted_unifrac, weighted_unifrac
 
 import warnings
 
@@ -15,8 +18,8 @@ import warnings
 MDS_NUM = 20
 
 class KADAIF:
-    def __init__(self, number_of_trees=100, trees=None, min_samples_to_split = 2, max_depth = 100, weights = "equal",replacement = True,
-                 pc_method = "proportion", normalize = True, subsample_size = 100, splitting_method = "pcoa", paral = True, cpu = None, verbose = True):
+    def __init__(self, number_of_trees=100, trees=None, min_samples_to_split = 2, max_depth = 100, weights = "proportion",replacement = True,
+                 pc_method = "first", normalize = True, subsample_size = 100, splitting_method = "pcoa", paral = True, cpu = None, verbose = True, unifrac_tree = None):
         self.number_of_trees = number_of_trees
         if trees ==None:
             trees = []
@@ -39,9 +42,12 @@ class KADAIF:
         self.samples_dict_depth = {}
         self.scores = None
         self.verbose = verbose
+        self.unifrac_tree = unifrac_tree
 
     def fit(self, features_matrix):
         self.features_matrix = features_matrix
+        self.features_matrix = self.features_matrix.loc[:, self.features_matrix.sum(axis=0) > 0]
+
         self.subsample_size_in_each_tree = self.features_matrix.shape[0]
         if self.paral == False:
             for i in range(len(self.trees), self.number_of_trees):
@@ -50,7 +56,7 @@ class KADAIF:
                 cur_tree = MicrobiomeIsolationTree(min_samples_to_split = self.min_samples_to_split, max_depth = self.max_depth,
                                         subsample_size = self.subsample_size, splitting_method = self.splitting_method, pc_method = self.pc_method,
                                         weights = self.weights, normalize = self.normalize, replacement = self.replacement,
-                                                   paral = self.paral, cpu=self.cpu)
+                                                   paral = self.paral, cpu=self.cpu, unifrac_tree = self.unifrac_tree)
                 cur_tree.fit(self.features_matrix)
                 self.trees.append(cur_tree)
                 if self.verbose:
@@ -61,7 +67,7 @@ class KADAIF:
                             max_depth = self.max_depth, subsample_size = self.subsample_size,
                             splitting_method = self.splitting_method, weights = self.weights,
                             normalize = self.normalize, pc_method = self.pc_method, replacement = self.replacement,
-                                        paral = self.paral, cpu = self.cpu) for _ in range(self.number_of_trees - len(self.trees)))
+                                        paral = self.paral, cpu = self.cpu, unifrac_tree = self.unifrac_tree) for _ in range(self.number_of_trees - len(self.trees)))
             [self.trees.append(t) for t in trees]
 
     def score(self):
@@ -91,7 +97,7 @@ class KADAIF:
 class MicrobiomeIsolationTree:
     def __init__(self, min_samples_to_split = 10, max_depth = 10, subsample_size = 100, splitting_method = "pcoa", weights = "proportion", pc_method = "first",
                 replacement = True, normalize = True, depth = 0, left=None, right=None, split_att=None, split_val=None, features_matrix=None,
-                 paral = True, cpu = None, parent = None):
+                 paral = True, cpu = None, parent = None, unifrac_tree = None):
         self.min_samples_to_split = min_samples_to_split
         self.max_depth = max_depth
         self.subsample_size = subsample_size
@@ -116,6 +122,7 @@ class MicrobiomeIsolationTree:
             self.cpu = cpu_count()
 
         self.parent = parent
+        self.unifrac_tree = unifrac_tree
 
 
     def fit(self, features_matrix):
@@ -137,7 +144,7 @@ class MicrobiomeIsolationTree:
                   replacement = self.replacement, normalize = self.normalize)
         self.split_att.fillna(value = 1 / self.split_att.shape[1], inplace = True)
         try:
-            while pairwise_distances(self.split_att).max().max() <= 10 ** (-9) or self.split_att.var().max() == 0:
+            while pairwise_distances(self.split_att).max().max() <= 10 ** (-6) or self.split_att.var().max() == 0:
                 self.split_att = subsample(self.features_matrix, self.subsample_size, weights=self.weights,
                                            replacement=self.replacement, normalize=self.normalize)
                 self.split_att.fillna(value=1 / self.split_att.shape[1], inplace=True)
@@ -168,16 +175,16 @@ class MicrobiomeIsolationTree:
 
 
         self.split_val, left_samples, right_samples = split_samples(self.split_att, method=self.splitting_method,
-                                                                    pc_method = self.pc_method)
+                                                                    pc_method = self.pc_method, unifrac_tree= self.unifrac_tree)
         self.left = MicrobiomeIsolationTree(min_samples_to_split = self.min_samples_to_split, max_depth = self.max_depth,
                                             subsample_size = self.subsample_size, splitting_method = self.splitting_method,
                                             depth = self.depth + 1, weights = self.weights, normalize = self.normalize, replacement = self.replacement,
-                                            paral = self.paral, cpu = self.cpu, parent = self)
+                                            paral = self.paral, cpu = self.cpu, parent = self, unifrac_tree = self.unifrac_tree)
 
         self.right = MicrobiomeIsolationTree(min_samples_to_split=self.min_samples_to_split, max_depth=self.max_depth,
                                              subsample_size=self.subsample_size, splitting_method=self.splitting_method,
                                              depth=self.depth + 1, weights=self.weights, normalize=self.normalize, replacement=self.replacement,
-                                             paral = self.paral, cpu = self.cpu, parent = self)
+                                             paral = self.paral, cpu = self.cpu, parent = self, unifrac_tree = self.unifrac_tree)
 
         if self.paral:
             samples_left_depths, samples_right_depths = Parallel(n_jobs=self.cpu)(
@@ -201,10 +208,51 @@ class MicrobiomeIsolationTree:
 
 
 
-def split_samples(feature_table, method = "pcoa", distance = "braycurtis", pc_method = "first"):
-    if method == "pcoa":
-        distance_table = pd.DataFrame(pairwise_distances(feature_table, metric=distance), index=feature_table.index,
-                              columns=feature_table.index)
+def split_samples(feature_table, method = "pcoa", distance = "braycurtis", pc_method = "first", unifrac_tree = None):
+    if method in ["pcoa", "unifrac_unweighted_pcoa", "unifrac_weighted_pcoa"]:
+        if method == "pcoa":
+            distance_table = pd.DataFrame(pairwise_distances(feature_table, metric=distance), index=feature_table.index,
+                                  columns=feature_table.index)
+        elif method in ["unifrac_unweighted_pcoa", "unifrac_weighted_pcoa"]:
+            feature_table = feature_table.groupby(feature_table.columns, axis=1).sum()
+            feature_table = feature_table / np.min(feature_table[feature_table > 0])
+            counts = feature_table.values
+            sample_ids = feature_table.index.tolist()
+            taxa_ids = feature_table.columns.tolist()
+
+            if method == "unifrac_unweighted_pcoa":
+                try:
+                    unifrac_res = beta_diversity(
+                                metric="unweighted_unifrac",
+                                counts=counts,
+                                ids=sample_ids,
+                                tree=unifrac_tree,
+                                taxa=taxa_ids)
+                except ValueError:
+                    print("failed due to old skbio version")
+                    unifrac_res = beta_diversity(
+                        metric="unweighted_unifrac",
+                        counts=counts,
+                        ids=sample_ids,
+                        tree=unifrac_tree,
+                        otu_ids=taxa_ids)
+            elif method == "unifrac_weighted_pcoa":
+                try:
+                    unifrac_res = beta_diversity(
+                                metric="weighted_unifrac",
+                                counts=counts,
+                                ids=sample_ids,
+                                tree=unifrac_tree,
+                                taxa=taxa_ids)
+                except ValueError:
+                    print("failed due to old skbio version")
+                    unifrac_res = beta_diversity(
+                        metric="weighted_unifrac",
+                        counts=counts,
+                        ids=sample_ids,
+                        tree=unifrac_tree,
+                        otu_ids=taxa_ids)
+            distance_table = pd.DataFrame(unifrac_res.data, index=sample_ids, columns=sample_ids)
 
         if pc_method == "first":
             mod = MDS(n_components=1, dissimilarity="precomputed")
@@ -253,6 +301,7 @@ def split_samples(feature_table, method = "pcoa", distance = "braycurtis", pc_me
             mod_first_comp = all_comp[:, np.random.choice([i for i in range(all_comp.shape[1])], p=cur_probs)]
 
 
+
     split_value = np.random.uniform(np.min(mod_first_comp), np.max(mod_first_comp))
     left_samples_list = list(feature_table[mod_first_comp >= split_value].index)
     right_samples_list = list(feature_table[mod_first_comp < split_value].index)
@@ -284,11 +333,11 @@ def subsample(feature_table, subsample_size, weights = "proportion", replacement
     return cur_feature_table
 
 def return_fitted_tree(data, min_samples_to_split, max_depth, subsample_size, splitting_method,
-                       weights, normalize, replacement, pc_method, paral, cpu):
+                       weights, normalize, replacement, pc_method, paral, cpu, unifrac_tree = None):
     t = MicrobiomeIsolationTree(min_samples_to_split = min_samples_to_split, max_depth = max_depth,
                                         subsample_size = subsample_size, splitting_method = splitting_method,
                                         weights = weights, normalize = normalize, replacement = replacement, pc_method = pc_method,
-                                paral = paral, cpu = cpu)
+                                paral = paral, cpu = cpu, unifrac_tree = unifrac_tree)
     t.fit(data)
     return t
 class Microbiome_isolation_forest_error(Exception):
