@@ -1,5 +1,7 @@
 # How to run KADAIF?
 
+You can run KADAIF either directly from Python or from a BASH script that wraps the Python code. The Python interface provides full control and integration with custom pipelines, while the BASH approach is useful for command-line automation and reproducibility using shell scripts. See details bellow.
+
 # Overview
 
 The KADAIF algorithm is an anomaly detection method specifically designed for microbiome data. It is based on the concept of [Isolation Forest (liu et al., 2008)]([url](https://ieeexplore.ieee.org/abstract/document/4781136)), a tree-based unsupervised learning algorithm that isolates anomalies by recursively partitioning data.
@@ -7,8 +9,8 @@ The anomaly score is computed based on how the average depth on which a sample w
 
 ![Schematic illustration of KADAIF](KADAIF.jpg)
 
-# Running KADAIF
-
+# Running KADAIF from Python
+KADAIF code is fully provided in the KADAIF.py file
 
 ## Parameters
 * **`number_of_trees`** (int, default=100): The number of isolation trees to create.
@@ -42,7 +44,7 @@ Fits the model and computes anomaly scores in one step.
 * **features_matrix (pd.DataFrame)**: Input feature matrix.
 * **Returns: numpy.array**. An array of anomaly scores corresponding to input samples.
 
-# Usage Example
+## Python Usage Example
 
 ```python
 import pandas as pd
@@ -56,4 +58,48 @@ model = KADAIF(number_of_trees=50, subsample_size=50)
 
 # Fit and transform
 anomaly_scores = model.fit_transform(data)
+```
+
+# Running KADAIF from BASH
+If you prefer running KADAIF from the command line, you can use the wrapper provided in the "run_KADAIF.sh" files. The files needed to run the wrapper are run_KADAIF_directly.py and KADAIF.py.
+
+## Explanation of BASH Script Parameters
+
+### Input-Output Paths
+
+* **`INPUT_MATRIX_PATH`**: Path to the input feature matrix in CSV format. Each row should represent a sample, and each column a feature (e.g., taxon).
+* **`INPUT_MATRIX_SEP`**: Delimiter used in the input CSV file. Typically `","` for standard CSVs or `"\t"` for TSVs.
+* **`OUTPUT_MATRIX_PATH`**: Path where the output anomaly scores will be saved as a CSV file.
+
+### Input Parameters
+
+* **`NUMBER_OF_TREES`**: Number of isolation trees to build. More trees usually increase robustness but also runtime.
+* **`TREES`**: Path to a serialized set of trees (ignored in this script*based usage; set to `None`).
+* **`MIN_SAMPLES_TO_SPLIT`**: Minimum number of samples required to allow a split in a tree node.
+* **`MAX_DEPTH`**: Maximum allowed depth for each isolation tree.
+* **`WEIGHTS`**: Strategy for sampling features.  
+  * `"equal"`: All features are equally likely.  
+  * `"proportion"`: Sampling is weighted by feature mean abundance.  
+  * `"None"`: All features are used at each split.
+* **`REPLACEMENT`**: Whether to sample features with replacement during selection.
+* **`PC_METHOD`**: Method for selecting the principal component during splitting.  
+  * `"first"`: Always use the first PC.  
+  * `"equal"`: Randomly choose among the top PCs with equal probability.  
+  * `"proportion"`: Choose among top PCs proportionally to explained variance.
+* **`NORMALIZE`**: Whether to normalize feature values before PCA/PCoA splitting.
+* **`SUBSAMPLE_SIZE`**: Number of features to subsample at each split.
+* **`SPLITTING_METHOD`**: Method used to compute the principal coordinates or components.  
+  * `"pcoa"`: Uses Bray*Curtis distance and PCoA.  
+  * `"unifrac_unweighted_pcoa"` / `"unifrac_weighted_pcoa"`: Use UniFrac distances and PCoA (requires a phylogenetic tree).  
+  * `"pca"`: Standard Principal Component Analysis.
+* **`PARAL`**: Whether to parallelize tree construction.
+* **`CPU`**: Number of CPU cores to use. If set to `None`, all available cores will be used.
+* **`VERBOSE`**: Whether to print progress messages during execution.
+* **`UNIFRAC_TREE`**: Path to a Newick*format phylogenetic tree used when `SPLITTING_METHOD` is `"unifrac_unweighted_pcoa"` or `"unifrac_weighted_pcoa"`. Tips must match taxa in the input matrix.
+
+## BASH Usage Example
+
+After editing the run_KADAIF.sh file according to your chosen parameters, make sure the files run_KADAIF_directly.py and KADAIF.py are located in the same folder and run the following command: 
+```bash
+python run_KADAIF.sh
 ```
