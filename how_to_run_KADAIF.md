@@ -20,10 +20,9 @@ KADAIF code is fully provided in the KADAIF.py file
 * **`weights`** (str, default="equal"): Weighting scheme for feature selection. Options: "equal" (all features are drawn over a uniform distribution), "proportion" (draw feature according to their mean abundance), or "None" (use all the features).
 * **`replacement`** (bool, default=True): Whether to sample with replacement during feature selection.
 * **`pc_method`** (str, default="proportion"): The method for selecting principal components. Options: "first" (use the first PC), "equal" (choose from the first few  PCs over the uniform distribution), "proportion" (choose from the first few PCs with probablity proportional to the variance explained).
-  Note: This implementation uses NMDS instead of PCoA to allow windows compatibility.
 * **`normalize`** (bool, default=True): Whether to normalize selected features.
 * **`subsample_size`** (int, default=100): Number of features selected at each split.
-* **`splitting_method`** (str, default="pcoa"): Method used for splitting. Options: "pcoa", "unifrac_unweighted_pcoa", "unifrac_weighted_pcoa" or "pca".
+* **`splitting_method`** (str, default="pcoa"): Method used for splitting. Options: "pcoa", "unifrac_unweighted_pcoa", "unifrac_weighted_pcoa" or "pca".   Note: This implementation uses NMDS instead of PCoA to allow windows compatibility.
 * **`paral`** (bool, default=True): Whether to parallelize tree building.
 * **`cpu`** (int, default=None): Number of CPU cores used for parallelization. If None, all available cores are used.
 * **`verbose`** (bool, default=True): Whether to print progress messages.
